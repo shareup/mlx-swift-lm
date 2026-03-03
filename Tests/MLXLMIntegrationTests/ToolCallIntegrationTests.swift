@@ -4,6 +4,7 @@ import Foundation
 import MLX
 import MLXLLM
 import MLXLMCommon
+import MLXVLM
 import XCTest
 
 /// Integration tests for tool call format auto-detection and end-to-end parsing.
@@ -21,11 +22,13 @@ public class ToolCallIntegrationTests: XCTestCase {
 
     static let lfm2ModelId = "mlx-community/LFM2-2.6B-Exp-4bit"
     static let glm4ModelId = "mlx-community/GLM-4-9B-0414-4bit"
+    static let mistral3ModelId = "mlx-community/Ministral-3-3B-Instruct-2512-4bit"
 
     // MARK: - Shared State
 
     nonisolated(unsafe) static var lfm2Container: ModelContainer?
     nonisolated(unsafe) static var glm4Container: ModelContainer?
+    nonisolated(unsafe) static var mistral3Container: ModelContainer?
 
     // MARK: - Tool Schema
 
@@ -61,6 +64,7 @@ public class ToolCallIntegrationTests: XCTestCase {
 
         let lfm2Expectation = XCTestExpectation(description: "Load LFM2")
         let glm4Expectation = XCTestExpectation(description: "Load GLM4")
+        let mistral3Expectation = XCTestExpectation(description: "Load Mistral3")
 
         Task {
             do {
@@ -84,7 +88,19 @@ public class ToolCallIntegrationTests: XCTestCase {
             glm4Expectation.fulfill()
         }
 
-        _ = XCTWaiter.wait(for: [lfm2Expectation, glm4Expectation], timeout: 600)
+        Task {
+            do {
+                mistral3Container = try await VLMModelFactory.shared.loadContainer(
+                    configuration: .init(id: mistral3ModelId)
+                )
+            } catch {
+                print("Failed to load Mistral3: \(error)")
+            }
+            mistral3Expectation.fulfill()
+        }
+
+        _ = XCTWaiter.wait(
+            for: [lfm2Expectation, glm4Expectation, mistral3Expectation], timeout: 600)
     }
 
     // MARK: - LFM2 Tests
@@ -190,6 +206,59 @@ public class ToolCallIntegrationTests: XCTestCase {
                 XCTAssertTrue(
                     location.lowercased().contains("paris"),
                     "Expected location to contain 'Paris', got: \(location)"
+                )
+            }
+        }
+    }
+
+    // MARK: - Mistral3 Tests
+
+    func testMistral3ToolCallFormatDefaultsToJSON() async throws {
+        guard let container = Self.mistral3Container else {
+            throw XCTSkip("Mistral3 model not available")
+        }
+
+        let config = await container.configuration
+        // Mistral3 uses the default JSON tool call format (infer returns nil)
+        let format = config.toolCallFormat ?? .json
+        XCTAssertEqual(
+            format, .json,
+            "Mistral3 model should use default .json tool call format"
+        )
+    }
+
+    func testMistral3EndToEndToolCallGeneration() async throws {
+        guard let container = Self.mistral3Container else {
+            throw XCTSkip("Mistral3 model not available")
+        }
+
+        let input = UserInput(
+            chat: [
+                .system(
+                    "You are a helpful assistant with access to tools. When asked about weather, use the get_weather function."
+                ),
+                .user("What's the weather in Tokyo?"),
+            ],
+            tools: Self.weatherToolSchema
+        )
+
+        let (result, toolCalls) = try await generateWithTools(
+            container: container,
+            input: input,
+            maxTokens: 100
+        )
+
+        print("Mistral3 Output: \(result)")
+        print("Mistral3 Tool Calls: \(toolCalls)")
+
+        // Verify we got a tool call (model may or may not call the tool)
+        if !toolCalls.isEmpty {
+            let toolCall = toolCalls.first!
+            XCTAssertEqual(toolCall.function.name, "get_weather")
+            if let location = toolCall.function.arguments["location"]?.asString {
+                XCTAssertTrue(
+                    location.lowercased().contains("tokyo"),
+                    "Expected location to contain 'Tokyo', got: \(location)"
                 )
             }
         }
