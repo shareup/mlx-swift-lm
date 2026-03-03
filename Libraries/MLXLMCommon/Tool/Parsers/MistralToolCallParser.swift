@@ -25,15 +25,18 @@ public struct MistralToolCallParser: ToolCallParser, Sendable {
     public init() {}
 
     public func parse(content: String, tools: [[String: any Sendable]]?) -> ToolCall? {
-        var text = content
+        var text = content.trimmingCharacters(in: .whitespacesAndNewlines)
 
-        // Strip [TOOL_CALLS] only when it is a true prefix.
-        // ToolCallProcessor.flush() already splits on this token.
-        if text.hasPrefix("[TOOL_CALLS]") {
-            text = String(text.dropFirst("[TOOL_CALLS]".count))
+        // Strip wrapper tags only when they appear at boundaries.
+        // This keeps literal tag strings inside argument values intact.
+        if let start = startTag, text.hasPrefix(start) {
+            text = String(text.dropFirst(start.count))
+            text = text.trimmingCharacters(in: .whitespacesAndNewlines)
         }
-
-        text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        if let end = endTag, text.hasSuffix(end) {
+            text = String(text.dropLast(end.count))
+            text = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
 
         // Split on [ARGS] to get function name and arguments
         guard let argsRange = text.range(of: "[ARGS]") else {

@@ -488,6 +488,28 @@ struct ToolTests {
         #expect(toolCall.function.arguments["location"] == .string("Paris"))
     }
 
+    @Test("Test Mistral Tool Call Parser - With End Tag")
+    func testMistralParserWithEndTag() throws {
+        let parser = MistralToolCallParser()
+        let content = "[TOOL_CALLS]get_weather[ARGS]{\"location\": \"Paris\"}</s>"
+
+        let toolCall = try #require(parser.parse(content: content, tools: nil))
+
+        #expect(toolCall.function.name == "get_weather")
+        #expect(toolCall.function.arguments["location"] == .string("Paris"))
+    }
+
+    @Test("Test Mistral Tool Call Parser - With Trailing End Tag Only")
+    func testMistralParserWithTrailingEndTagOnly() throws {
+        let parser = MistralToolCallParser()
+        let content = "get_weather[ARGS]{\"location\": \"Paris\"}</s>"
+
+        let toolCall = try #require(parser.parse(content: content, tools: nil))
+
+        #expect(toolCall.function.name == "get_weather")
+        #expect(toolCall.function.arguments["location"] == .string("Paris"))
+    }
+
     @Test("Test Mistral Tool Call Parser - Preserves [TOOL_CALLS] in Arguments")
     func testMistralParserPreservesStartTagInArguments() throws {
         let parser = MistralToolCallParser()
@@ -497,6 +519,17 @@ struct ToolTests {
 
         #expect(toolCall.function.name == "get_note")
         #expect(toolCall.function.arguments["text"] == .string("literal [TOOL_CALLS] marker"))
+    }
+
+    @Test("Test Mistral Tool Call Parser - Preserves </s> in Arguments")
+    func testMistralParserPreservesEndTagInArguments() throws {
+        let parser = MistralToolCallParser()
+        let content = "get_note[ARGS]{\"text\": \"literal </s> marker\"}"
+
+        let toolCall = try #require(parser.parse(content: content, tools: nil))
+
+        #expect(toolCall.function.name == "get_note")
+        #expect(toolCall.function.arguments["text"] == .string("literal </s> marker"))
     }
 
     @Test("Test Mistral Format via ToolCallProcessor")
