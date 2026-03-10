@@ -51,10 +51,8 @@ public struct MistralToolCallParser: ToolCallParser, Sendable {
 
         guard !namePart.isEmpty else { return nil }
 
-        // Parse arguments as JSON using deserialize from ParserUtilities
-        let arguments = deserialize(argsPart)
-
-        guard let argsDict = arguments as? [String: any Sendable] else {
+        // Parse arguments as JSON using tryParseJSON from ParserUtilities
+        guard let argsDict = tryParseJSON(argsPart) as? [String: any Sendable] else {
             return nil
         }
 
