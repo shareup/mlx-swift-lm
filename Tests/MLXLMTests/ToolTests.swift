@@ -213,7 +213,7 @@ struct ToolTests {
 
     @Test("Test XML Function Parser - Qwen3 Coder Format")
     func testXMLFunctionParser() throws {
-        let parser = XMLFunctionParser()
+        let parser = XMLFunctionParser(startTag: "<tool_call>", endTag: "</tool_call>")
         let content =
             "<function=get_weather><parameter=location>Tokyo</parameter><parameter=unit>celsius</parameter></function>"
 
@@ -226,7 +226,7 @@ struct ToolTests {
 
     @Test("Test XML Function Parser - With Type Conversion")
     func testXMLFunctionParserTypeConversion() throws {
-        let parser = XMLFunctionParser()
+        let parser = XMLFunctionParser(startTag: "<tool_call>", endTag: "</tool_call>")
         let tools: [[String: any Sendable]] = [
             [
                 "function": [
@@ -252,7 +252,7 @@ struct ToolTests {
 
     @Test("Test XML Function Parser - Multiline Content (Qwen3.5 style)")
     func testXMLFunctionParserMultiline() throws {
-        let parser = XMLFunctionParser()
+        let parser = XMLFunctionParser(startTag: "<tool_call>", endTag: "</tool_call>")
         // Qwen3.5 models generate newlines between the XML tags
         let content = """
             <tool_call>
@@ -269,7 +269,7 @@ struct ToolTests {
 
     @Test("Test XML Function Parser - Multiline Parameters")
     func testXMLFunctionParserMultilineParams() throws {
-        let parser = XMLFunctionParser()
+        let parser = XMLFunctionParser(startTag: "<tool_call>", endTag: "</tool_call>")
         let content = """
             <function=get_weather>
             <parameter=location>
@@ -311,7 +311,7 @@ struct ToolTests {
 
     @Test("Test Qwen3.5 Format via ToolCallProcessor")
     func testQwen35FormatProcessor() throws {
-        let processor = ToolCallProcessor(format: .qwen35)
+        let processor = ToolCallProcessor(format: .xmlFunction)
         let chunks: [String] = [
             "<tool", "_call>", "\n<function=get_weather>\n",
             "<parameter=location>\nTokyo\n</parameter>",
@@ -330,7 +330,7 @@ struct ToolTests {
 
     @Test("Test Qwen3.5 Format - No Arguments")
     func testQwen35FormatNoArgs() throws {
-        let processor = ToolCallProcessor(format: .qwen35)
+        let processor = ToolCallProcessor(format: .xmlFunction)
         let content = "<tool_call>\n<function=get_current_datetime>\n</function>\n</tool_call>"
 
         _ = processor.processChunk(content)
@@ -479,7 +479,6 @@ struct ToolTests {
         #expect(ToolCallFormat.gemma.rawValue == "gemma")
         #expect(ToolCallFormat.kimiK2.rawValue == "kimi_k2")
         #expect(ToolCallFormat.minimaxM2.rawValue == "minimax_m2")
-        #expect(ToolCallFormat.qwen35.rawValue == "qwen3_5")
         #expect(ToolCallFormat.mistral.rawValue == "mistral")
 
         // Test round-trip via raw value
@@ -511,12 +510,15 @@ struct ToolTests {
         #expect(ToolCallFormat.infer(from: "gemma") == .gemma)
         #expect(ToolCallFormat.infer(from: "GEMMA") == .gemma)
 
-        // Qwen3.5 models (prefix matching)
-        #expect(ToolCallFormat.infer(from: "qwen3_5") == .qwen35)
-        #expect(ToolCallFormat.infer(from: "qwen3_5_moe") == .qwen35)
-        #expect(ToolCallFormat.infer(from: "QWEN3_5") == .qwen35)
+        // Nemotron models (prefix matching)
+        #expect(ToolCallFormat.infer(from: "nemotron_h") == .xmlFunction)
+        #expect(ToolCallFormat.infer(from: "NEMOTRON_H") == .xmlFunction)
 
-        // Unknown models should return nil (use default)
+        // Qwen3.5 models (prefix matching)
+        #expect(ToolCallFormat.infer(from: "qwen3_5") == .xmlFunction)
+        #expect(ToolCallFormat.infer(from: "qwen3_5_moe") == .xmlFunction)
+        #expect(ToolCallFormat.infer(from: "QWEN3_5") == .xmlFunction)
+
         // Mistral3 models (prefix matching)
         #expect(ToolCallFormat.infer(from: "mistral3") == .mistral)
         #expect(ToolCallFormat.infer(from: "Mistral3") == .mistral)

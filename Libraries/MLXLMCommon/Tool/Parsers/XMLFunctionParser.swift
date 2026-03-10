@@ -8,7 +8,7 @@ public struct XMLFunctionParser: ToolCallParser, Sendable {
     public let startTag: String?
     public let endTag: String?
 
-    public init(startTag: String? = nil, endTag: String? = nil) {
+    public init(startTag: String, endTag: String) {
         self.startTag = startTag
         self.endTag = endTag
     }
