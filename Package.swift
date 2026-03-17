@@ -28,8 +28,8 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/ml-explore/mlx-swift", .upToNextMinor(from: "0.30.6")),
         .package(
-            url: "https://github.com/huggingface/swift-transformers",
-            .upToNextMinor(from: "1.2.0")
+            url: "https://github.com/shareup/swift-transformers",
+            .upToNextMinor(from: "0.0.1")
         ),
     ],
     targets: [
