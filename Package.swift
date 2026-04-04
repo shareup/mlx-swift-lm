@@ -38,6 +38,11 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/ml-explore/mlx-swift", .upToNextMinor(from: "0.31.3")),
         .package(url: "https://github.com/swiftlang/swift-syntax.git", from: "600.0.0-latest"),
+        .package(url: "https://github.com/huggingface/swift-huggingface", from: "0.9.0"),
+        .package(
+            url: "https://github.com/huggingface/swift-transformers",
+            .upToNextMinor(from: "1.3.0")
+        ),
     ],
     targets: [
         .target(
@@ -145,6 +150,17 @@ let package = Package(
                 "MLXLMCommon",
             ],
             path: "Libraries/MLXHuggingFace"
+        ),
+        .testTarget(
+            name: "MLXLMIntegrationTests",
+            dependencies: [
+                "IntegrationTestHelpers",
+                "MLXHuggingFace",
+                "MLXLMCommon",
+                .product(name: "HuggingFace", package: "swift-huggingface"),
+                .product(name: "Tokenizers", package: "swift-transformers"),
+            ],
+            path: "Tests/MLXLMIntegrationTests"
         ),
     ]
 )
