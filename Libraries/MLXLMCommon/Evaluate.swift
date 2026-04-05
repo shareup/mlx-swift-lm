@@ -334,19 +334,21 @@ struct TokenRing {
 
     /// Bulk-load from a prompt. Keeps the last `capacity` tokens.
     mutating func loadPrompt(_ prompt: MLXArray) {
-        let n = prompt.dim(0)
-        let promptTokens = prompt.asType(.int32)
+        // Flatten first so dim(0) always returns the token count,
+        // even when the prompt has a batch dimension (e.g. VLM tokens are [1, seq_len]).
+        let promptTokens = prompt.reshaped(-1).asType(.int32)
+        let n = promptTokens.dim(0)
         if n <= capacity {
             if n < capacity {
                 let padding = MLXArray.zeros([capacity - n], type: Int32.self)
-                buffer = concatenated([promptTokens.reshaped(-1), padding])
+                buffer = concatenated([promptTokens, padding])
             } else {
-                buffer = promptTokens.reshaped(-1)
+                buffer = promptTokens
             }
             count = n
             writeIndex = n % capacity
         } else {
-            buffer = promptTokens[(-capacity)...].reshaped(-1)
+            buffer = promptTokens[(-capacity)...]
             count = capacity
             writeIndex = 0
         }
@@ -355,7 +357,7 @@ struct TokenRing {
     /// Append a single token using GPU-only mask write (no CPU←GPU sync).
     mutating func append(_ token: MLXArray) {
         let mask = positions .== Int32(writeIndex)
-        buffer = MLX.where(mask, token.asType(.int32), buffer)
+        buffer = MLX.where(mask, token.reshaped().asType(.int32), buffer)
         writeIndex = (writeIndex + 1) % capacity
         count = min(count + 1, capacity)
     }
