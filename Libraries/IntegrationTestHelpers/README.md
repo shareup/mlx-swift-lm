@@ -4,21 +4,26 @@
 
 ## Running integration tests locally
 
-The `MLXLMIntegrationTests` test target in this repo uses [Swift Hugging Face](https://github.com/huggingface/swift-huggingface) and [Swift Transformers](https://github.com/huggingface/swift-transformers) via the `MLXHuggingFace` macros to provide `Downloader` and `TokenizerLoader` implementations. Models are downloaded from Hugging Face Hub on first run and cached in `~/.cache/huggingface/`.
+The `IntegrationTesting/IntegrationTesting.xcodeproj` Xcode project in this repo uses [Swift Hugging Face](https://github.com/huggingface/swift-huggingface) and [Swift Transformers](https://github.com/huggingface/swift-transformers) via the `MLXHuggingFace` macros to provide `Downloader` and `TokenizerLoader` implementations. Models are downloaded from Hugging Face Hub on first run and cached in `~/.cache/huggingface/`.
+
+To run integration tests, open `IntegrationTesting/IntegrationTesting.xcodeproj` in Xcode and run the test target (`Cmd+U` or via the Test Navigator), or use `xcodebuild`:
 
 ```bash
 # Run all integration tests (requires macOS with Metal)
 xcodebuild test \
-  -scheme mlx-swift-lm-Package \
-  -destination 'platform=macOS' \
-  -only-testing:MLXLMIntegrationTests
+  -project IntegrationTesting/IntegrationTesting.xcodeproj \
+  -scheme IntegrationTesting \
+  -destination 'platform=macOS'
 
-# Run a single model's tests
+# Run a single test
 xcodebuild test \
-  -scheme mlx-swift-lm-Package \
+  -project IntegrationTesting/IntegrationTesting.xcodeproj \
+  -scheme IntegrationTesting \
   -destination 'platform=macOS' \
-  -only-testing:MLXLMIntegrationTests/ToolCallIntegrationTests/qwen35FormatAutoDetection
+  -only-testing:IntegrationTestingTests/ToolCallIntegrationTests/qwen35FormatAutoDetection\(\)
 ```
+
+These tests do not run in CI.
 
 ## External integration packages
 

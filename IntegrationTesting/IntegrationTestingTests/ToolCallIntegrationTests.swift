@@ -1,3 +1,5 @@
+// Copyright © 2026 Apple Inc.
+
 import Foundation
 import HuggingFace
 import IntegrationTestHelpers

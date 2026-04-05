@@ -14,7 +14,7 @@ possible.
    You can also run the formatters manually as follows:
  
      ```
-     swift-format format --in-place --recursive Libraries Tools Applications
+     swift-format format --in-place --recursive Libraries Tools Applications IntegrationTesting
      ```
  
    or run `pre-commit run --all-files` to check all files in the repo.
@@ -27,13 +27,26 @@ Unit tests run without any special hardware and do not download models:
 swift test
 ```
 
-Integration tests verify end-to-end model loading and generation. They require macOS with Metal and download models from Hugging Face Hub on first run:
+Integration tests verify end-to-end model loading and generation. They require
+macOS with Metal and download models from Hugging Face Hub on first run. These
+tests do not run in CI.
+
+Open `IntegrationTesting/IntegrationTesting.xcodeproj` in Xcode and run the
+test target (`Cmd+U` or via the Test Navigator), or use `xcodebuild`:
 
 ```bash
+# Run all integration tests
 xcodebuild test \
-  -scheme mlx-swift-lm-Package \
+  -project IntegrationTesting/IntegrationTesting.xcodeproj \
+  -scheme IntegrationTesting \
+  -destination 'platform=macOS'
+
+# Run a single test
+xcodebuild test \
+  -project IntegrationTesting/IntegrationTesting.xcodeproj \
+  -scheme IntegrationTesting \
   -destination 'platform=macOS' \
-  -only-testing:MLXLMIntegrationTests
+  -only-testing:IntegrationTestingTests/ToolCallIntegrationTests/qwen35FormatAutoDetection\(\)
 ```
 
 See [Libraries/IntegrationTestHelpers/README.md](Libraries/IntegrationTestHelpers/README.md) for more details.
