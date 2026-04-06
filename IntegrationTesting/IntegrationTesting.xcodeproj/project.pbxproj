@@ -518,7 +518,7 @@
 /* Begin XCLocalSwiftPackageReference section */
 		57408ED92F82B8FB001E2121 /* XCLocalSwiftPackageReference "../../mlx-swift-lm" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = "../../mlx-swift-lm";
+			relativePath = "../..";
 		};
 /* End XCLocalSwiftPackageReference section */
 
