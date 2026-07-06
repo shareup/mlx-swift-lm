@@ -25,6 +25,15 @@ func deserializeJSON(_ data: Data) -> (any Sendable)? {
     return asSendable(object)
 }
 
+/// Deserialize JSON data, allowing top-level scalar values.
+func deserializeJSONFragment(_ data: Data) -> (any Sendable)? {
+    guard
+        let object = try? JSONSerialization.jsonObject(
+            with: data, options: .fragmentsAllowed)
+    else { return nil }
+    return asSendable(object)
+}
+
 // MARK: - Basic Deserialization
 
 /// Deserialize a string value to JSON or return as string.
@@ -51,23 +60,102 @@ func isStringType(funcName: String, argName: String, tools: [[String: any Sendab
     return type == "string"
 }
 
-/// Get the parameter type from tool schema for a specific function and parameter.
+/// Returns the single concrete schema type for a function parameter.
+/// Handles scalar types and nullable single-type arrays like ["integer", "null"].
+/// Returns nil for missing, all-null, or ambiguous union types.
 /// Reference: https://github.com/ml-explore/mlx-lm/blob/main/mlx_lm/tool_parsers/qwen3_coder.py
 func getParameterType(
     funcName: String, paramName: String, tools: [[String: any Sendable]]?
 ) -> String? {
+    guard
+        let param = getParameterSchema(
+            funcName: funcName,
+            paramName: paramName,
+            tools: tools
+        )
+    else {
+        return nil
+    }
+    return singleParameterType(param["type"])
+}
+
+private func getParameterSchema(
+    funcName: String, paramName: String, tools: [[String: any Sendable]]?
+) -> [String: any Sendable]? {
     guard let tools else { return nil }
     for tool in tools {
         guard let function = tool["function"] as? [String: any Sendable],
             function["name"] as? String == funcName,
             let parameters = function["parameters"] as? [String: any Sendable],
             let properties = parameters["properties"] as? [String: any Sendable],
-            let param = properties[paramName] as? [String: any Sendable],
-            let type = param["type"] as? String
+            let param = properties[paramName] as? [String: any Sendable]
         else { continue }
-        return type
+        return param
     }
     return nil
+}
+
+private func singleParameterType(_ value: (any Sendable)?) -> String? {
+    guard let value else { return nil }
+    if let type = value as? String {
+        return type
+    }
+
+    guard let types = stringArrayType(value) else { return nil }
+
+    let nonNullTypes = types.filter { $0.lowercased() != "null" }
+    if Set(nonNullTypes.map { $0.lowercased() }).count == 1 {
+        return nonNullTypes[0]
+    }
+    return nil
+}
+
+private func stringArrayType(_ value: any Sendable) -> [String]? {
+    if let stringTypes = value as? [String] {
+        return stringTypes
+    }
+    if let values = value as? [any Sendable] {
+        var stringTypes = [String]()
+        for value in values {
+            guard let type = value as? String else { return nil }
+            stringTypes.append(type)
+        }
+        return stringTypes
+    }
+    return nil
+}
+
+private func parameterAllowsNull(
+    funcName: String, paramName: String, tools: [[String: any Sendable]]?
+) -> Bool {
+    guard
+        let param = getParameterSchema(
+            funcName: funcName,
+            paramName: paramName,
+            tools: tools
+        )
+    else {
+        return false
+    }
+
+    if param["nullable"] as? Bool == true {
+        return true
+    }
+    return typeAllowsNull(param["type"])
+}
+
+private func typeAllowsNull(_ value: (any Sendable)?) -> Bool {
+    guard let value else { return false }
+    if let type = value as? String {
+        return type.lowercased() == "null"
+    }
+
+    return stringArrayType(value)?.contains { $0.lowercased() == "null" } ?? false
+}
+
+private func isNullLiteral(_ value: String) -> Bool {
+    let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+    return ["null", "none", "nil"].contains(normalized)
 }
 
 /// Get parameter configuration for a function from tools schema.
@@ -197,6 +285,12 @@ func convertValueWithTypes(_ value: String, types: [String]) -> any Sendable {
 func convertParameterValue(
     _ value: String, paramName: String, funcName: String, tools: [[String: any Sendable]]?
 ) -> any Sendable {
+    if isNullLiteral(value),
+        parameterAllowsNull(funcName: funcName, paramName: paramName, tools: tools)
+    {
+        return NSNull()
+    }
+
     guard let paramType = getParameterType(funcName: funcName, paramName: paramName, tools: tools)
     else {
         return value

@@ -81,7 +81,7 @@ public struct GemmaFunctionParser: ToolCallParser, Sendable {
                 arguments[key] = convertParameterValue(
                     value, paramName: key, funcName: funcName, tools: tools)
             } else if let data = value.data(using: .utf8),
-                let json = deserializeJSON(data)
+                let json = deserializeJSONFragment(data)
             {
                 arguments[key] = json
             } else {

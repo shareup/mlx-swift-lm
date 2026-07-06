@@ -2646,9 +2646,10 @@ public struct Gemma4Processor: UserInputProcessor {
 
     public func prepare(input: UserInput) async throws -> LMInput {
         let messages = Gemma4MessageGenerator().generate(from: input)
+        let promptTools = try Gemma4ToolSchemaNormalizer.normalizeTypeArrays(input.tools)
 
         var promptTokens = try tokenizer.applyChatTemplate(
-            messages: messages, tools: input.tools,
+            messages: messages, tools: promptTools,
             additionalContext: input.additionalContext)
 
         var processedImage: LMInput.ProcessedImage?
@@ -3037,9 +3038,10 @@ public struct Gemma4UnifiedProcessor: UserInputProcessor {
 
     public func prepare(input: UserInput) async throws -> LMInput {
         let messages = Gemma4MessageGenerator().generate(from: input)
+        let promptTools = try Gemma4ToolSchemaNormalizer.normalizeTypeArrays(input.tools)
 
         var promptTokens = try tokenizer.applyChatTemplate(
-            messages: messages, tools: input.tools,
+            messages: messages, tools: promptTools,
             additionalContext: input.additionalContext)
 
         var processedImage: LMInput.ProcessedImage?
