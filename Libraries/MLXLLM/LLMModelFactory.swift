@@ -478,21 +478,27 @@ private struct LLMUserInputProcessor: UserInputProcessor {
     let tokenizer: Tokenizer
     let configuration: ModelConfiguration
     let messageGenerator: MessageGenerator
+    let toolSchemaGenerator: ToolSchemaGenerator
 
     internal init(
         tokenizer: any Tokenizer, configuration: ModelConfiguration,
-        messageGenerator: MessageGenerator
+        messageGenerator: MessageGenerator,
+        toolSchemaGenerator: ToolSchemaGenerator
     ) {
         self.tokenizer = tokenizer
         self.configuration = configuration
         self.messageGenerator = messageGenerator
+        self.toolSchemaGenerator = toolSchemaGenerator
     }
 
     func prepare(input: UserInput) throws -> LMInput {
         let messages = messageGenerator.generate(from: input)
+
         do {
             let promptTokens = try tokenizer.applyChatTemplate(
-                messages: messages, tools: input.tools, additionalContext: input.additionalContext)
+                messages: messages,
+                tools: try toolSchemaGenerator.generate(from: input),
+                additionalContext: input.additionalContext)
 
             return LMInput(tokens: MLXArray(promptTokens))
         } catch TokenizerError.missingChatTemplate {
@@ -604,12 +610,15 @@ public final class LLMModelFactory: GenericModelFactory {
 
         let tokenizer = try await tokenizerTask
 
-        let messageGenerator =
-            if let model = model as? LLMModel {
-                model.messageGenerator(tokenizer: tokenizer)
-            } else {
-                DefaultMessageGenerator()
-            }
+        let messageGenerator: MessageGenerator
+        let toolSchemaGenerator: ToolSchemaGenerator
+        if let model = model as? LLMModel {
+            messageGenerator = model.messageGenerator(tokenizer: tokenizer)
+            toolSchemaGenerator = model.toolSchemaGenerator(tokenizer: tokenizer)
+        } else {
+            messageGenerator = DefaultMessageGenerator()
+            toolSchemaGenerator = DefaultToolSchemaGenerator()
+        }
 
         // Build a ModelConfiguration for the ModelContext
         let tokenizerSource: TokenizerSource? =
@@ -627,7 +636,8 @@ public final class LLMModelFactory: GenericModelFactory {
 
         let processor = LLMUserInputProcessor(
             tokenizer: tokenizer, configuration: modelConfig,
-            messageGenerator: messageGenerator)
+            messageGenerator: messageGenerator,
+            toolSchemaGenerator: toolSchemaGenerator)
 
         return .init(
             configuration: modelConfig, model: model, processor: processor,
