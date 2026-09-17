@@ -101,6 +101,18 @@ public class Gemma4Model: Module, LLMModel, KVCacheDimensionProvider {
     }
 }
 
+struct Gemma4ToolSchemaGenerator: ToolSchemaGenerator {
+    func generate(from input: UserInput) throws -> [ToolSpec]? {
+        try Gemma4ToolSchemaNormalizer.normalizeTypeArrays(input.tools)
+    }
+}
+
+extension Gemma4Model {
+    public func toolSchemaGenerator(tokenizer: any Tokenizer) -> ToolSchemaGenerator {
+        Gemma4ToolSchemaGenerator()
+    }
+}
+
 // MARK: - LoRA
 
 extension Gemma4Model: LoRAModel {

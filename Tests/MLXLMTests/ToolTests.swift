@@ -600,6 +600,47 @@ struct ToolTests {
         #expect(toolCall.function.arguments["enabled"] == .bool(true))
     }
 
+    @Test("Test Pythonic Tool Call Parser - Nullable Null Literals")
+    func testPythonicParserNullableNullLiterals() throws {
+        let parser = PythonicToolCallParser(
+            startTag: "<|tool_call_start|>", endTag: "<|tool_call_end|>")
+        let tools: [ToolSpec] = [
+            [
+                "type": "function",
+                "function": [
+                    "name": "set_message",
+                    "parameters": [
+                        "type": "object",
+                        "properties": [
+                            "count": [
+                                "type": ["integer", "null"]
+                            ] as [String: any Sendable],
+                            "enabled": [
+                                "type": ["boolean", "null"]
+                            ] as [String: any Sendable],
+                            "note": [
+                                "type": ["string", "null"]
+                            ] as [String: any Sendable],
+                            "literal": [
+                                "type": "string"
+                            ] as [String: any Sendable],
+                        ] as [String: any Sendable],
+                    ] as [String: any Sendable],
+                ] as [String: any Sendable],
+            ]
+        ]
+        let content =
+            "<|tool_call_start|>[set_message(count=null, enabled=null, note=null, literal=null)]<|tool_call_end|>"
+
+        let toolCall = try #require(parser.parse(content: content, tools: tools))
+
+        #expect(toolCall.function.name == "set_message")
+        #expect(toolCall.function.arguments["count"] == .null)
+        #expect(toolCall.function.arguments["enabled"] == .null)
+        #expect(toolCall.function.arguments["note"] == .null)
+        #expect(toolCall.function.arguments["literal"] == .string("null"))
+    }
+
     @Test("Test LFM2 Format via ToolCallProcessor - Pythonic")
     func testLFM2FormatProcessor() throws {
         let processor = ToolCallProcessor(format: .lfm2)
@@ -653,6 +694,78 @@ struct ToolTests {
         #expect(toolCall.function.name == "set_temperature")
         #expect(toolCall.function.arguments["value"] == .int(25))
         #expect(toolCall.function.arguments["enabled"] == .bool(true))
+    }
+
+    @Test("Test XML Function Parser - Nullable Type Array Conversion")
+    func testXMLFunctionParserNullableTypeArrayConversion() throws {
+        let parser = XMLFunctionParser(startTag: "<tool_call>", endTag: "</tool_call>")
+        let tools: [ToolSpec] = [
+            [
+                "type": "function",
+                "function": [
+                    "name": "set_message",
+                    "parameters": [
+                        "type": "object",
+                        "properties": [
+                            "count": [
+                                "type": ["integer", "null"]
+                            ] as [String: any Sendable],
+                            "enabled": [
+                                "type": ["boolean", "null"]
+                            ] as [String: any Sendable],
+                        ] as [String: any Sendable],
+                    ] as [String: any Sendable],
+                ] as [String: any Sendable],
+            ]
+        ]
+        let content =
+            "<function=set_message><parameter=count>42</parameter><parameter=enabled>true</parameter></function>"
+
+        let toolCall = try #require(parser.parse(content: content, tools: tools))
+
+        #expect(toolCall.function.name == "set_message")
+        #expect(toolCall.function.arguments["count"] == .int(42))
+        #expect(toolCall.function.arguments["enabled"] == .bool(true))
+    }
+
+    @Test("Test XML Function Parser - Nullable Null Literals")
+    func testXMLFunctionParserNullableNullLiterals() throws {
+        let parser = XMLFunctionParser(startTag: "<tool_call>", endTag: "</tool_call>")
+        let tools: [ToolSpec] = [
+            [
+                "type": "function",
+                "function": [
+                    "name": "set_message",
+                    "parameters": [
+                        "type": "object",
+                        "properties": [
+                            "count": [
+                                "type": ["integer", "null"]
+                            ] as [String: any Sendable],
+                            "enabled": [
+                                "type": ["boolean", "null"]
+                            ] as [String: any Sendable],
+                            "note": [
+                                "type": ["string", "null"]
+                            ] as [String: any Sendable],
+                            "literal": [
+                                "type": "string"
+                            ] as [String: any Sendable],
+                        ] as [String: any Sendable],
+                    ] as [String: any Sendable],
+                ] as [String: any Sendable],
+            ]
+        ]
+        let content =
+            "<function=set_message><parameter=count>null</parameter><parameter=enabled>null</parameter><parameter=note>null</parameter><parameter=literal>null</parameter></function>"
+
+        let toolCall = try #require(parser.parse(content: content, tools: tools))
+
+        #expect(toolCall.function.name == "set_message")
+        #expect(toolCall.function.arguments["count"] == .null)
+        #expect(toolCall.function.arguments["enabled"] == .null)
+        #expect(toolCall.function.arguments["note"] == .null)
+        #expect(toolCall.function.arguments["literal"] == .string("null"))
     }
 
     @Test("Test XML Function Parser - Multiline Content (Qwen3.5 style)")
@@ -835,6 +948,106 @@ struct ToolTests {
         #expect(toolCall.function.arguments["mailbox"] == .string("INBOX"))
         #expect(toolCall.function.arguments["id"] == .int(158_348))
         #expect(toolCall.function.arguments["id"] != .string("158348"))
+    }
+
+    @Test("Test Gemma 4 Function Parser - Nullable Type Array Conversion")
+    func testGemma4ParserNullableTypeArrayConversion() throws {
+        let tools: [ToolSpec] = [
+            [
+                "type": "function",
+                "function": [
+                    "name": "mail_read",
+                    "parameters": [
+                        "type": "object",
+                        "properties": [
+                            "id": [
+                                "type": ["integer", "null"]
+                            ] as [String: any Sendable]
+                        ] as [String: any Sendable],
+                    ] as [String: any Sendable],
+                ] as [String: any Sendable],
+            ]
+        ]
+        let processor = ToolCallProcessor(format: .gemma4, tools: tools)
+        let content =
+            #"<|tool_call>call:mail_read{id:<|"|>158348<|"|>}<tool_call|>"#
+
+        _ = processor.processChunk(content)
+
+        let toolCall = try #require(processor.toolCalls.first)
+        #expect(toolCall.function.name == "mail_read")
+        #expect(toolCall.function.arguments["id"] == .int(158_348))
+        #expect(toolCall.function.arguments["id"] != .string("158348"))
+    }
+
+    @Test("Test Gemma 4 Function Parser - Nullable Type Array Null Literals")
+    func testGemma4ParserNullableTypeArrayNullLiterals() throws {
+        let parser = GemmaFunctionParser(
+            startTag: "<|tool_call>", endTag: "<tool_call|>", escapeMarker: #"<|"|>"#)
+        let tools: [ToolSpec] = [
+            [
+                "type": "function",
+                "function": [
+                    "name": "set_message",
+                    "parameters": [
+                        "type": "object",
+                        "properties": [
+                            "count": [
+                                "type": ["integer", "null"]
+                            ] as [String: any Sendable],
+                            "enabled": [
+                                "type": ["boolean", "null"]
+                            ] as [String: any Sendable],
+                            "note": [
+                                "type": ["string", "null"]
+                            ] as [String: any Sendable],
+                            "summary": [
+                                "type": "string",
+                                "nullable": true,
+                            ] as [String: any Sendable],
+                        ] as [String: any Sendable],
+                    ] as [String: any Sendable],
+                ] as [String: any Sendable],
+            ]
+        ]
+        let content =
+            #"<|tool_call>call:set_message{count:null,enabled:null,note:null,summary:null}<tool_call|>"#
+
+        let toolCall = try #require(parser.parse(content: content, tools: tools))
+
+        #expect(toolCall.function.name == "set_message")
+        #expect(toolCall.function.arguments["count"] == .null)
+        #expect(toolCall.function.arguments["enabled"] == .null)
+        #expect(toolCall.function.arguments["note"] == .null)
+        #expect(toolCall.function.arguments["summary"] == .null)
+    }
+
+    @Test("Test Gemma 4 Function Parser - All Null Type Array Falls Back To JSON Decoding")
+    func testGemma4ParserAllNullTypeArrayFallsBackToJSONDecoding() throws {
+        let parser = GemmaFunctionParser(
+            startTag: "<|tool_call>", endTag: "<tool_call|>", escapeMarker: #"<|"|>"#)
+        let tools: [ToolSpec] = [
+            [
+                "type": "function",
+                "function": [
+                    "name": "set_message",
+                    "parameters": [
+                        "type": "object",
+                        "properties": [
+                            "value": [
+                                "type": ["null"]
+                            ] as [String: any Sendable]
+                        ] as [String: any Sendable],
+                    ] as [String: any Sendable],
+                ] as [String: any Sendable],
+            ]
+        ]
+        let content = #"<|tool_call>call:set_message{value:null}<tool_call|>"#
+
+        let toolCall = try #require(parser.parse(content: content, tools: tools))
+
+        #expect(toolCall.function.name == "set_message")
+        #expect(toolCall.function.arguments["value"] == .null)
     }
 
     @Test("Test Gemma Format via ToolCallProcessor")

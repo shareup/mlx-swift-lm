@@ -38,6 +38,7 @@ public enum IntegrationTestModelIDs {
     public static let mistral3 = "mlx-community/Ministral-3-3B-Instruct-2512-4bit"
     public static let nemotron = "mlx-community/NVIDIA-Nemotron-3-Nano-30B-A3B-4bit"
     public static let qwen35 = "mlx-community/Qwen3.5-2B-4bit"
+    public static let gemma4Unified = "mlx-community/gemma-4-12B-it-4bit"
 }
 
 // MARK: - Model Loading
@@ -478,9 +479,18 @@ public enum ToolCallTests {
     }
 
     public static func lfm2EndToEndGeneration(container: LLModelContainer) async throws {
+        let input = UserInput(
+            chat: [
+                .system(
+                    "You are a helpful assistant with access to tools. When asked about weather, use the get_weather function."
+                ),
+                .user("What's the weather in Tokyo?"),
+            ],
+            tools: [weatherToolSchema]
+        )
+
         let (result, toolCalls) = try await generateWithTools(
-            container: container,
-            userMessage: "What's the weather in Tokyo?")
+            container: container, input: input)
 
         print("LFM2 Output:", result)
         print("LFM2 Tool Calls:", toolCalls)
@@ -500,6 +510,16 @@ public enum ToolCallTests {
         )
     }
 
+    public static func lfm2SupportsJSONArrayNullableToolArguments(
+        container: LLModelContainer
+    ) async throws {
+        try await prepare(
+            container: container,
+            modelName: "LFM2",
+            tools: [weatherToolSchemaWithNullableArgs]
+        )
+    }
+
     public static func glm4FormatAutoDetection(container: LLModelContainer) async throws {
         let config = await container.configuration
         try check(
@@ -509,9 +529,18 @@ public enum ToolCallTests {
     }
 
     public static func glm4EndToEndGeneration(container: LLModelContainer) async throws {
+        let input = UserInput(
+            chat: [
+                .system(
+                    "You are a helpful assistant with access to tools. When asked about weather, use the get_weather function."
+                ),
+                .user("What's the weather in Paris?"),
+            ],
+            tools: [weatherToolSchema]
+        )
+
         let (result, toolCalls) = try await generateWithTools(
-            container: container,
-            userMessage: "What's the weather in Paris?")
+            container: container, input: input)
 
         print("GLM4 Output:", result)
         print("GLM4 Tool Calls:", toolCalls)
@@ -528,6 +557,16 @@ public enum ToolCallTests {
         try check(
             location.lowercased().contains("paris"),
             "Expected location containing 'Paris', got: \(location)"
+        )
+    }
+
+    public static func glm4SupportsJSONArrayNullableToolArguments(
+        container: LLModelContainer
+    ) async throws {
+        try await prepare(
+            container: container,
+            modelName: "GLM4",
+            tools: [weatherToolSchemaWithNullableArgs]
         )
     }
 
@@ -601,6 +640,16 @@ public enum ToolCallTests {
         try check(
             toolCalls.count > 1,
             "Expected multiple tool calls, got \(toolCalls.count)"
+        )
+    }
+
+    public static func mistral3SupportsJSONArrayNullableToolArguments(
+        container: LLModelContainer
+    ) async throws {
+        try await prepare(
+            container: container,
+            modelName: "Mistral3",
+            tools: [weatherToolSchemaWithNullableArgs]
         )
     }
 
@@ -679,6 +728,17 @@ public enum ToolCallTests {
         )
     }
 
+    public static func nemotronSupportsJSONArrayNullableToolArguments(
+        container: LLModelContainer
+    ) async throws {
+        try await prepare(
+            container: container,
+            modelName: "Nemotron",
+            tools: [weatherToolSchemaWithNullableArgs],
+            additionalContext: ["enable_thinking": false]
+        )
+    }
+
     // MARK: Qwen3.5
 
     public static func qwen35FormatAutoDetection(container: LLModelContainer) async throws {
@@ -753,7 +813,135 @@ public enum ToolCallTests {
         )
     }
 
+    public static func qwen35SupportsJSONArrayNullableToolArguments(
+        container: LLModelContainer
+    ) async throws {
+        try await prepare(
+            container: container,
+            modelName: "Qwen3.5",
+            tools: [weatherToolSchemaWithNullableArgs]
+        )
+    }
+
+    // MARK: Gemma 4
+
+    public static func gemma4FormatAutoDetection(container: LLModelContainer) async throws {
+        let config = await container.configuration
+        try check(
+            config.toolCallFormat == ToolCallFormat.gemma4,
+            "Expected .gemma4 tool call format, got: \(String(describing: config.toolCallFormat))"
+        )
+    }
+
+    public static func gemma4EndToEndGeneration(container: LLModelContainer) async throws {
+        let input = UserInput(
+            chat: [
+                .system(
+                    "You are a helpful assistant with access to tools. When asked about weather, use the get_weather function."
+                ),
+                .user("What's the weather in Tokyo?"),
+            ],
+            tools: [weatherToolSchema],
+            additionalContext: ["enable_thinking": true]
+        )
+
+        let (result, toolCalls) = try await generateWithTools(
+            container: container, input: input, maxTokens: 200)
+
+        print("Gemma 4 Output:", result)
+        print("Gemma 4 Tool Calls:", toolCalls)
+
+        try check(!toolCalls.isEmpty, "Expected at least one tool call, got none")
+        let toolCall = toolCalls[0]
+        try check(
+            toolCall.function.name == "get_weather",
+            "Expected tool name 'get_weather', got: \(toolCall.function.name)"
+        )
+        guard case .string(let location) = toolCall.function.arguments["location"] else {
+            throw IntegrationTestFailure("Expected string 'location' argument")
+        }
+        try check(
+            location.lowercased().contains("tokyo"),
+            "Expected location containing 'Tokyo', got: \(location)"
+        )
+    }
+
+    public static func gemma4MultiToolGeneration(container: LLModelContainer) async throws {
+        let input = UserInput(
+            chat: [
+                .system(
+                    "You are a helpful assistant with access to tools. Always use the available tools to answer questions. Call multiple tools in parallel when needed."
+                ),
+                .user("What's the weather in Tokyo and what time is it there?"),
+            ],
+            tools: multiToolSchemas,
+            additionalContext: ["enable_thinking": true]
+        )
+
+        let (result, toolCalls) = try await generateWithTools(
+            container: container, input: input, maxTokens: 300)
+
+        print("Gemma 4 Output:", result)
+        print("Gemma 4 Calls:", toolCalls)
+
+        let validNames: Set<String> = ["get_weather", "get_time"]
+        for toolCall in toolCalls {
+            try check(
+                validNames.contains(toolCall.function.name),
+                "Unexpected tool call: \(toolCall.function.name)"
+            )
+        }
+
+        try check(
+            toolCalls.count > 1,
+            "Expected multiple tool calls, got \(toolCalls.count)"
+        )
+        let names = Set(toolCalls.map(\.function.name))
+        try check(
+            names.contains("get_weather"),
+            "Expected get_weather tool call, got: \(names)"
+        )
+        try check(
+            names.contains("get_time"),
+            "Expected get_time tool call, got: \(names)"
+        )
+    }
+
+    public static func gemma4SupportsJSONArrayNullableToolArguments(
+        container: LLModelContainer
+    ) async throws {
+        try await prepare(
+            container: container,
+            modelName: "Gemma 4",
+            tools: [weatherToolSchemaWithNullableArgs]
+        )
+    }
+
     // MARK: Helpers
+
+    private static func prepare(
+        container: LLModelContainer,
+        modelName: String,
+        tools: [ToolSpec],
+        additionalContext: [String: any Sendable]? = nil
+    ) async throws {
+        let input = UserInput(
+            chat: [
+                .system("You are a helpful assistant with access to tools."),
+                .user("Check the weather in Berlin. Leave notes blank if there are none."),
+            ],
+            tools: tools,
+            additionalContext: additionalContext
+        )
+
+        do {
+            _ = try await container.prepare(input: input)
+        } catch {
+            throw IntegrationTestFailure(
+                "\(modelName) should prepare input with tool schemas without throwing, but threw: \(error.localizedDescription)"
+            )
+        }
+    }
 
     private static func generateWithTools(
         container: LLModelContainer,
@@ -765,7 +953,8 @@ public enum ToolCallTests {
             let stream = try generate(
                 input: lmInput,
                 parameters: GenerateParameters(maxTokens: maxTokens),
-                context: context
+                context: context,
+                tools: input.tools
             )
             var text = ""
             var toolCalls: [ToolCall] = []
@@ -781,23 +970,6 @@ public enum ToolCallTests {
             }
             return (text, toolCalls)
         }
-    }
-
-    private static func generateWithTools(
-        container: LLModelContainer,
-        userMessage: String
-    ) async throws -> (text: String, toolCalls: [ToolCall]) {
-        let input = UserInput(
-            chat: [
-                .system(
-                    "You are a helpful assistant with access to tools. When asked about weather, use the get_weather function."
-                ),
-                .user(userMessage),
-            ],
-            tools: [weatherToolSchema]
-        )
-        return try await generateWithTools(
-            container: container, input: input)
     }
 }
 
@@ -863,6 +1035,38 @@ private let timeToolSchema: ToolSpec = [
 ]
 
 private let multiToolSchemas: [ToolSpec] = [weatherToolSchema, timeToolSchema]
+
+private let weatherToolSchemaWithNullableArgs: ToolSpec = [
+    "type": "function",
+    "function": [
+        "name": "get_weather",
+        "description": "Get the current weather for a location",
+        "parameters": [
+            "type": "object",
+            "properties": [
+                "location": [
+                    "type": "string",
+                    "description": "The city name, e.g. San Francisco",
+                ] as [String: any Sendable],
+                "notes": [
+                    "type": ["string", "null"],
+                    "description": "Optional free-form notes for the request",
+                ] as [String: any Sendable],
+                "metadata": [
+                    "type": ["object", "null"],
+                    "properties": [
+                        "source": [
+                            "type": "string",
+                            "description": "Optional source identifier",
+                        ] as [String: any Sendable]
+                    ] as [String: any Sendable],
+                    "description": "Optional structured metadata",
+                ] as [String: any Sendable],
+            ] as [String: any Sendable],
+            "required": ["location"],
+        ] as [String: any Sendable],
+    ] as [String: any Sendable],
+]
 
 // MARK: - Hugging Face cache locations
 
