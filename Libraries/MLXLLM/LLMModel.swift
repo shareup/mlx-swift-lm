@@ -10,6 +10,11 @@ public protocol LLMModel: LanguageModel, LoRAModel {
     ///
     /// The default implementation returns `DefaultMessageGenerator`.
     func messageGenerator(tokenizer: Tokenizer) -> MessageGenerator
+
+    /// Models can implement this if they need custom prompt tool schemas.
+    ///
+    /// The default implementation returns `DefaultToolSchemaGenerator`.
+    func toolSchemaGenerator(tokenizer: Tokenizer) -> ToolSchemaGenerator
 }
 
 extension LLMModel {
@@ -46,5 +51,23 @@ extension LLMModel {
 
     public func messageGenerator(tokenizer: Tokenizer) -> MessageGenerator {
         DefaultMessageGenerator()
+    }
+
+    public func toolSchemaGenerator(tokenizer: Tokenizer) -> ToolSchemaGenerator {
+        DefaultToolSchemaGenerator()
+    }
+}
+
+/// Generates model-specific tool schemas for prompt rendering.
+public protocol ToolSchemaGenerator: Sendable {
+    func generate(from input: UserInput) throws -> [ToolSpec]?
+}
+
+/// Default implementation of ``ToolSchemaGenerator`` that preserves caller schemas.
+public struct DefaultToolSchemaGenerator: ToolSchemaGenerator {
+    public init() {}
+
+    public func generate(from input: UserInput) throws -> [ToolSpec]? {
+        input.tools
     }
 }

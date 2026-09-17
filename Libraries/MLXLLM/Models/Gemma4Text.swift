@@ -767,6 +767,12 @@ public class Gemma4TextModel: Module, LLMModel, KVCacheDimensionProvider {
     }
 }
 
+extension Gemma4TextModel {
+    public func toolSchemaGenerator(tokenizer: any Tokenizer) -> ToolSchemaGenerator {
+        Gemma4ToolSchemaGenerator()
+    }
+}
+
 // MARK: - LoRA
 
 extension Gemma4TextModel: LoRAModel {
